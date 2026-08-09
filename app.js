@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'QF_SYS_V.1.2.24';
+const APP_VERSION = 'QF_SYS_V.1.2.25';
 
 // Diagnostic only: captures the first uncaught error/rejection anywhere in
 // the app so it can be surfaced in the UI (Profile > Backup & Restore) --
@@ -1078,6 +1078,7 @@ function openStudentIdentityModal(mandatory) {
   $('identityAge').value = id.age || '';
   $('identitySchool').value = id.school || '';
   $('identityGradeLevel').value = id.gradeLevel || '';
+  $('identitySection').value = id.section || '';
   $('identityAdviser').value = id.adviser || '';
   $('identityAddress').value = id.address || '';
   $('identityContactNumber').value = id.contactNumber || '';
@@ -1106,7 +1107,7 @@ function renderStudentIdentityCard() {
   if (hasName) {
     const fullName = [id.givenName, id.middleName, id.surname].filter(Boolean).join(' ');
     $('identitySummaryName').textContent = fullName || 'Student';
-    const metaParts = [id.gradeLevel, id.school].filter(Boolean);
+    const metaParts = [id.gradeLevel, id.section, id.school].filter(Boolean);
     $('identitySummaryMeta').textContent = metaParts.length ? metaParts.join(' • ') : 'Tap Edit to complete your profile.';
     avatar.innerHTML = id.photoDataUrl ? `<img src="${id.photoDataUrl}" alt="${esc(fullName)}">` : identityPlaceholderAvatarSvg(22);
   } else {
@@ -1142,6 +1143,7 @@ $('btnIdentitySave').addEventListener('click', () => {
     age: $('identityAge').value.trim(),
     school: $('identitySchool').value.trim(),
     gradeLevel: $('identityGradeLevel').value.trim(),
+    section: $('identitySection').value.trim(),
     adviser: $('identityAdviser').value.trim(),
     address: $('identityAddress').value.trim(),
     contactNumber: $('identityContactNumber').value.trim(),
@@ -1212,6 +1214,11 @@ $('btnIdentityRestoreSubmit').addEventListener('click', async () => {
 });
 
 $('btnEditStudentIdentity').addEventListener('click', () => openStudentIdentityModal(false));
+
+// location.href, not window.open -- popups are unreliable in the native
+// Android WebView without an extra Capacitor plugin; a same-tab navigation
+// is the safe cross-platform choice.
+$('btnInstructorLogin').addEventListener('click', () => { window.location.href = 'instructor.html'; });
 
 /* ============ Image legibility check ============ */
 

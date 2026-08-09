@@ -1,11 +1,13 @@
 // Keep in sync with APP_VERSION in app.js
-const CACHE_NAME = 'squizit-QF_SYS_V.1.2.24';
+const CACHE_NAME = 'squizit-QF_SYS_V.1.2.25';
 const CORE_ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './config.js',
+  './instructor.html',
+  './instructor-charts.js',
   './manifest.webmanifest',
   './icons/icon.png',
   './icons/wordmark.png',

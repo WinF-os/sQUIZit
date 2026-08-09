@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F07824">
+<title>sQUIZit — Instructor</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icons/icon.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Standalone page, not part of the main app's tab-based .app-shell (no
+     bottom nav here -- a teacher's information needs don't overlap with a
+     quiz-taker's, same reasoning Winfinity's own coach-dashboard.html
+     documents for staying a separate page). Reuses every existing design
+     token/card/button/field class from style.css for visual consistency;
+     only the layout shell below is new. */
+  .instructor-shell { width: 100%; max-width: 480px; min-height: 100vh; margin: 0 auto; background: var(--color-bg); padding: var(--space-4) var(--space-4) var(--space-8); display: flex; flex-direction: column; gap: var(--space-5); }
+  .instructor-header { display: flex; align-items: center; justify-content: space-between; }
+  .instructor-header h1 { font-size: 1.2rem; font-weight: 700; }
+  .instructor-header a { font-size: 0.85rem; color: var(--color-text-muted); }
+  .instructor-session-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .instructor-filter-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .instructor-filter-row .select-input { flex: 1; min-width: 120px; }
+  .roster-list { display: flex; flex-direction: column; gap: var(--space-3); }
+  .roster-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+  .roster-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .roster-card-name { font-weight: 700; }
+  .roster-card-meta { font-size: 0.78rem; color: var(--color-text-muted); }
+  .roster-card-score { font-size: 1.1rem; font-weight: 700; color: var(--color-primary); }
+  .roster-card-actions { display: flex; gap: var(--space-3); margin-top: 4px; }
+  .auth-toggle-row { display: flex; gap: var(--space-2); }
+  .auth-toggle-row .link-btn.is-active { text-decoration: underline; }
+  #chartsSection { display: flex; flex-direction: column; gap: var(--space-4); }
+
+  /* Comparison bar chart -- see instructor-charts.js. Horizontal bars: name
+     column fixed width, track fills the rest. 2px surface-color gap between
+     rows stands in for the "surface gap" spacer since these are separate
+     rows, not a touching stack. */
+  .viz-bar-list { display: flex; flex-direction: column; gap: 2px; }
+  .viz-bar-row { display: grid; grid-template-columns: 84px 1fr 44px; align-items: center; gap: var(--space-2); padding: 3px 0; border-radius: var(--radius-sm); cursor: pointer; }
+  .viz-bar-row:hover, .viz-bar-row:focus-visible { background: var(--color-primary-tint); outline: none; }
+  .viz-bar-label { font-size: 0.8rem; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .viz-bar-track { height: 20px; background: var(--color-border); border-radius: var(--radius-pill); overflow: hidden; }
+  .viz-bar-fill { display: block; height: 100%; border-radius: 0 var(--radius-pill) var(--radius-pill) 0; min-width: 4px; }
+  .viz-bar-value { font-size: 0.8rem; font-weight: 700; color: var(--color-text); text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* Detail line chart tooltip -- positioned by the caller via inline style;
+     values lead (Strong), label follows, per the interaction spec. */
+  .viz-tooltip { position: relative; margin-top: var(--space-2); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); box-shadow: var(--shadow-card); padding: var(--space-2) var(--space-3); font-size: 0.8rem; display: inline-block; }
+  .viz-line-hit { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="instructor-shell" id="instructorShell">
+
+  <div class="instructor-header">
+    <h1>Instructor</h1>
+    <a href="index.html">&larr; Back to sQUIZit</a>
+  </div>
+
+  <!-- ============ LOGIN / REGISTER ============ -->
+  <section id="viewAuth">
+    <div class="card">
+      <p class="section-heading" id="authTitle">Instructor Log In</p>
+      <p class="screen-sub" style="margin-top:6px;">Log in with the same Digital ID + PIN you use for Backup &amp; Restore in the main app.</p>
+
+      <div class="auth-toggle-row" style="margin-top:12px;">
+        <button type="button" class="link-btn is-active" id="btnAuthTabLogin">Log In</button>
+        <button type="button" class="link-btn" id="btnAuthTabRegister">Become an Instructor</button>
+      </div>
+
+      <label class="field-block" style="margin-top:12px;">
+        <span class="field-label">Digital ID</span>
+        <input type="text" class="text-input" id="authDigitalId" placeholder="e.g. SQ-AB23XZ">
+      </label>
+      <label class="field-block" style="margin-top:10px;">
+        <span class="field-label">PIN</span>
+        <input type="password" class="text-input" id="authPin" placeholder="Your PIN" inputmode="numeric">
+      </label>
+      <label class="field-block" id="authDisplayNameBlock" style="margin-top:10px;" hidden>
+        <span class="field-label">Display Name</span>
+        <input type="text" class="text-input" id="authDisplayName" placeholder="e.g. Ms. Reyes -- how your roster sees you">
+      </label>
+
+      <p class="identity-modal-error" id="authError" hidden></p>
+      <button type="button" class="btn btn--primary btn--block" id="btnAuthSubmit" style="margin-top:4px;">Log In</button>
+    </div>
+  </section>
+
+  <!-- ============ DASHBOARD ============ -->
+  <section id="viewDashboard" hidden>
+    <div class="instructor-session-bar">
+      <div>
+        <p class="screen-title" id="dashboardGreeting" style="font-size:1.1rem;">Hi</p>
+        <p class="screen-sub" id="dashboardDigitalId"></p>
+      </div>
+      <button type="button" class="link-btn" id="btnLogOut">Log Out</button>
+    </div>
+
+    <div class="card">
+      <p class="section-heading">Add a Student</p>
+      <p class="screen-sub" style="margin-top:6px;">Enter a student's Digital ID and the subject you're monitoring them for.</p>
+      <div class="identity-field-grid" style="margin-top:10px;">
+        <label class="field-block">
+          <span class="field-label">Student Digital ID</span>
+          <input type="text" class="text-input" id="addStudentId" placeholder="e.g. SQ-AB23XZ">
+        </label>
+        <label class="field-block">
+          <span class="field-label">Subject</span>
+          <input type="text" class="text-input" id="addStudentSubject" placeholder="e.g. Math">
+        </label>
+      </div>
+      <p class="identity-modal-error" id="addStudentError" hidden></p>
+      <button type="button" class="btn btn--primary btn--block" id="btnAddStudent" style="margin-top:10px;">Add Student</button>
+    </div>
+
+    <div class="card">
+      <p class="section-heading">Filter Roster</p>
+      <div class="instructor-filter-row" style="margin-top:10px;">
+        <select class="select-input" id="filterSubject"><option value="">All Subjects</option></select>
+        <select class="select-input" id="filterGradeLevel"><option value="">All Grade Levels</option></select>
+      </div>
+      <div class="instructor-filter-row" style="margin-top:8px;">
+        <select class="select-input" id="filterSchool"><option value="">All Schools</option></select>
+        <select class="select-input" id="filterSection"><option value="">All Sections</option></select>
+      </div>
+    </div>
+
+    <div id="chartsSection"></div>
+
+    <div>
+      <p class="section-heading" style="margin-bottom:var(--space-3);">Roster</p>
+      <div class="roster-list" id="rosterList"></div>
+    </div>
+  </section>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+const esc = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Same theme-detection as app.js -- opens in whichever theme the user
+// already set in the main app, instead of defaulting to light.
+(function initTheme() {
+  const stored = localStorage.getItem('quizforge-theme');
+  if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
+})();
+
+// Identical to app.js's own callEdgeFunction -- can't share code with it,
+// this is a separate standalone page with no build step, same reason every
+// edge function in this project inlines its own CORS helpers rather than
+// importing a shared one.
+async function callEdgeFunction(name, body) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || `Request to ${name} failed.`);
+  return data;
+}
+
+// In-memory only -- NEVER localStorage. Re-sent on every roster/attach/
+// remove call (no session token/JWT anywhere in this feature), matching
+// the "re-verify every call" design this was ported from.
+let session = null; // { digitalId, pin, displayName }
+let rosterCache = [];
+let authMode = 'login'; // 'login' | 'register'
+
+/* ============ Auth ============ */
+
+$('btnAuthTabLogin').addEventListener('click', () => setAuthMode('login'));
+$('btnAuthTabRegister').addEventListener('click', () => setAuthMode('register'));
+
+function setAuthMode(mode) {
+  authMode = mode;
+  $('btnAuthTabLogin').classList.toggle('is-active', mode === 'login');
+  $('btnAuthTabRegister').classList.toggle('is-active', mode === 'register');
+  $('authTitle').textContent = mode === 'login' ? 'Instructor Log In' : 'Become an Instructor';
+  $('authDisplayNameBlock').hidden = mode === 'login';
+  $('btnAuthSubmit').textContent = mode === 'login' ? 'Log In' : 'Register & Log In';
+  $('authError').hidden = true;
+}
+
+$('btnAuthSubmit').addEventListener('click', async () => {
+  const digitalId = $('authDigitalId').value.trim();
+  const pin = $('authPin').value;
+  if (!digitalId || pin.length < 6) {
+    return showAuthError('Enter your Digital ID and PIN (at least 6 characters).');
+  }
+  const btn = $('btnAuthSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Please wait…';
+  try {
+    if (authMode === 'register') {
+      const displayName = $('authDisplayName').value.trim();
+      if (!displayName) { showAuthError('Enter a display name.'); return; }
+      const data = await callEdgeFunction('register-instructor', { digitalId, pin, displayName });
+      session = { digitalId, pin, displayName: data.displayName };
+    } else {
+      // The roster fetch itself doubles as the login-verification call --
+      // no separate "check credentials" endpoint needed.
+      const data = await callEdgeFunction('instructor-get-roster', { instructorDigitalId: digitalId, instructorPin: pin });
+      session = { digitalId, pin, displayName: data.instructor?.displayName || digitalId };
+      rosterCache = data.roster || [];
+    }
+    enterDashboard();
+  } catch (e) {
+    showAuthError(e.message || 'Something went wrong.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? 'Log In' : 'Register & Log In';
+  }
+});
+
+function showAuthError(msg) {
+  $('authError').textContent = msg;
+  $('authError').hidden = false;
+}
+
+function enterDashboard() {
+  $('viewAuth').hidden = true;
+  $('viewDashboard').hidden = false;
+  $('dashboardGreeting').textContent = `Hi, ${session.displayName}`;
+  $('dashboardDigitalId').textContent = session.digitalId;
+  if (rosterCache.length) renderRoster();
+  else refreshRoster();
+}
+
+$('btnLogOut').addEventListener('click', () => {
+  session = null;
+  rosterCache = [];
+  $('authDigitalId').value = '';
+  $('authPin').value = '';
+  $('viewDashboard').hidden = true;
+  $('viewAuth').hidden = false;
+  setAuthMode('login');
+});
+
+/* ============ Roster ============ */
+
+async function refreshRoster() {
+  $('rosterList').innerHTML = `<p class="empty-note">Loading…</p>`;
+  try {
+    const data = await callEdgeFunction('instructor-get-roster', { instructorDigitalId: session.digitalId, instructorPin: session.pin });
+    rosterCache = data.roster || [];
+    renderFilterOptions();
+    renderRoster();
+  } catch (e) {
+    $('rosterList').innerHTML = `<p class="empty-note">Couldn't load your roster: ${esc(e.message || e)}</p>`;
+  }
+}
+
+function studentFullName(identity) {
+  if (!identity) return 'Unknown Student';
+  return [identity.givenName, identity.middleName, identity.surname].filter(Boolean).join(' ') || 'Unnamed Student';
+}
+
+function currentFilters() {
+  return {
+    subject: $('filterSubject').value,
+    gradeLevel: $('filterGradeLevel').value,
+    school: $('filterSchool').value,
+    section: $('filterSection').value,
+  };
+}
+
+function filteredRoster() {
+  const f = currentFilters();
+  return rosterCache.filter((r) => {
+    if (f.subject && r.subject !== f.subject) return false;
+    if (f.gradeLevel && (r.identity?.gradeLevel || '') !== f.gradeLevel) return false;
+    if (f.school && (r.identity?.school || '') !== f.school) return false;
+    if (f.section && (r.identity?.section || '') !== f.section) return false;
+    return true;
+  });
+}
+
+function renderFilterOptions() {
+  const distinct = (fn) => [...new Set(rosterCache.map(fn).filter(Boolean))].sort();
+  const fillSelect = (id, values) => {
+    const select = $(id);
+    const current = select.value;
+    select.innerHTML = select.options[0].outerHTML + values.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    if (values.includes(current)) select.value = current;
+  };
+  fillSelect('filterSubject', distinct((r) => r.subject));
+  fillSelect('filterGradeLevel', distinct((r) => r.identity?.gradeLevel));
+  fillSelect('filterSchool', distinct((r) => r.identity?.school));
+  fillSelect('filterSection', distinct((r) => r.identity?.section));
+}
+
+['filterSubject', 'filterGradeLevel', 'filterSchool', 'filterSection'].forEach((id) => {
+  $(id).addEventListener('change', () => { renderRoster(); });
+});
+
+function renderRoster() {
+  const visible = filteredRoster();
+  renderCharts(visible);
+
+  if (!visible.length) {
+    $('rosterList').innerHTML = rosterCache.length
+      ? `<p class="empty-note">No students match these filters.</p>`
+      : `<p class="empty-note">No students yet -- add one above using their Digital ID.</p>`;
+    return;
+  }
+
+  $('rosterList').innerHTML = visible.map((r, i) => {
+    const name = studentFullName(r.identity);
+    const meta = [r.subject, r.identity?.gradeLevel, r.identity?.section, r.identity?.school].filter(Boolean).join(' • ');
+    const score = r.hasData
+      ? `${r.stats.averageScorePercent}% avg${r.stats.mostRecentScorePercent != null ? ` &bull; ${r.stats.mostRecentScorePercent}% most recent` : ''}`
+      : 'No quiz activity yet';
+    return `
+    <article class="roster-card">
+      <div class="roster-card-head">
+        <div>
+          <p class="roster-card-name">${esc(name)}</p>
+          <p class="roster-card-meta">${esc(meta || 'No details on file')}</p>
+        </div>
+        <p class="roster-card-score">${r.hasData ? esc(String(r.stats.averageScorePercent)) + '%' : '—'}</p>
+      </div>
+      <p class="roster-card-meta">${r.hasData ? esc(score) : 'No quiz activity yet'} &bull; ${r.stats.quizCount} attempt${r.stats.quizCount === 1 ? '' : 's'}</p>
+      <div class="roster-card-actions">
+        <button type="button" class="link-btn js-remove-student" data-index="${i}">Remove</button>
+      </div>
+    </article>`;
+  }).join('');
+
+  visible.forEach((r, i) => {
+    const btn = document.querySelector(`.js-remove-student[data-index="${i}"]`);
+    if (btn) btn.addEventListener('click', () => removeStudent(r.studentDigitalId, r.subject));
+  });
+}
+
+/* ============ Add / Remove ============ */
+
+$('btnAddStudent').addEventListener('click', async () => {
+  const studentDigitalId = $('addStudentId').value.trim();
+  const subject = $('addStudentSubject').value.trim() || 'General';
+  if (!studentDigitalId) {
+    $('addStudentError').textContent = "Enter the student's Digital ID.";
+    $('addStudentError').hidden = false;
+    return;
+  }
+  const btn = $('btnAddStudent');
+  btn.disabled = true;
+  btn.textContent = 'Adding…';
+  try {
+    await callEdgeFunction('instructor-attach-student', {
+      instructorDigitalId: session.digitalId, instructorPin: session.pin, studentDigitalId, subject,
+    });
+    $('addStudentId').value = '';
+    $('addStudentSubject').value = '';
+    $('addStudentError').hidden = true;
+    await refreshRoster();
+  } catch (e) {
+    $('addStudentError').textContent = e.message || 'Could not add this student.';
+    $('addStudentError').hidden = false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Student';
+  }
+});
+
+async function removeStudent(studentDigitalId, subject) {
+  if (!confirm('Remove this student from your roster for this subject?')) return;
+  try {
+    await callEdgeFunction('instructor-remove-student', {
+      instructorDigitalId: session.digitalId, instructorPin: session.pin, studentDigitalId, subject,
+    });
+    await refreshRoster();
+  } catch (e) {
+    alert(`Could not remove this student: ${e.message || e}`);
+  }
+}
+
+/* ============ Charts ============ */
+// Filled in separately -- see renderCharts() below.
+</script>
+<script src="instructor-charts.js"></script>
+</body>
+</html>

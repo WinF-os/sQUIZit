@@ -45,6 +45,10 @@ supabase functions deploy get-class-session
 supabase functions deploy get-my-classes
 supabase functions deploy save-digital-id-backup
 supabase functions deploy restore-digital-id-backup
+supabase functions deploy register-instructor
+supabase functions deploy instructor-attach-student
+supabase functions deploy instructor-remove-student
+supabase functions deploy instructor-get-roster
 ```
 
 (In practice this project's functions have been deployed by pasting each one's `index.ts` directly into the Supabase dashboard's Edge Functions UI rather than via CLI — both work, but the dashboard's single-file editor can't resolve a relative import to `_shared/`, which is why `check-image-legibility` and `share-quiz` inline their own CORS helper instead of importing it like the other two do.)
@@ -124,6 +128,34 @@ alter table public.digital_identities enable row level security;
 ```
 
 Same zero-RLS-policy posture as every other table here. The PIN is bcrypt-hashed server-side (`npm:bcryptjs`, never stored/logged in plaintext) and never persisted client-side either — it's re-entered every time. 8 failed attempts locks a Digital ID for 15 minutes; every failure mode (wrong ID, wrong PIN, locked out) returns an identical generic error so a failed attempt never leaks which part was wrong. **A lost Digital ID + PIN is permanently unrecoverable** — the server only ever has a bcrypt hash, nothing to recover from; there's no forgot-PIN flow in this version.
+
+`register-instructor`/`instructor-attach-student`/`instructor-remove-student`/`instructor-get-roster` back **`instructor.html`** — a completely separate standalone page (not part of the main app's tabs, linked from Profile → "Instructor Log In"), modeled on a sibling project's proven "Coach Portal." An instructor persona sits on top of an existing Digital ID (self-service — any Digital ID holder can register as one) rather than being a separate credential system; every instructor-scoped call re-verifies the caller's own Digital ID + PIN inline (bcrypt + the same lockout as above), no session/JWT anywhere. Needs two more tables:
+
+```sql
+create table public.instructors (
+  digital_id text primary key references public.digital_identities(digital_id),
+  display_name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.instructors enable row level security;
+
+create table public.instructor_students (
+  id uuid primary key default gen_random_uuid(),
+  instructor_digital_id text not null references public.instructors(digital_id),
+  student_digital_id text not null references public.digital_identities(digital_id),
+  subject text not null default 'General',
+  status text not null default 'active' check (status in ('active', 'removed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (instructor_digital_id, student_digital_id, subject)
+);
+create index instructor_students_instructor_idx on public.instructor_students (instructor_digital_id);
+create index instructor_students_student_idx on public.instructor_students (student_digital_id);
+alter table public.instructor_students enable row level security;
+```
+
+An instructor attaches a student just by knowing their Digital ID — no approval step from the student (the ID itself is the consent signal, a deliberate choice). `subject` lives on the relationship, not the student, since the same student can have multiple instructors across subjects (uniqueness is `instructor + student + subject`, not just `instructor + student`); grade level/school/section come live from the student's own `digital_identities.payload.studentIdentity` instead of being duplicated here. Progress stats (average score, most recent score, a merged timeline) are computed on every roster fetch directly from each attached student's existing Digital ID backup payload — there's no separate "stats" table, so this view can never drift from the main app's own definition of a completed quiz. A student who's never used "Back Up via Digital ID" (or has zero completed quizzes) simply shows no data yet — an inherent, accepted limitation of this design, not a bug.
 
 ### 3. Add your Gemini API key (BYOK)
 
