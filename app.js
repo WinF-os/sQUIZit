@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'QF_SYS_V.1.2.27';
+const APP_VERSION = 'QF_SYS_V.1.2.30';
 
 // Diagnostic only: captures the first uncaught error/rejection anywhere in
 // the app so it can be surfaced in the UI (Profile > Backup & Restore) --
@@ -365,6 +365,12 @@ async function callWithKeyRotation(name, body) {
 
 function switchTab(tab) {
   state.tab = tab;
+  // Drives the Obsidian Orbit skin (see style.css) that dark-themes the
+  // shared header/nav chrome only while the Class tab is active, so the
+  // live-class experience reads as one unified dark surface top-to-bottom
+  // (matching the reference screenshots) instead of a black panel dropped
+  // under an otherwise cream/orange header.
+  $('appShell').dataset.activeTab = tab;
   document.querySelectorAll('.tab-panel').forEach((panel) => {
     panel.hidden = panel.dataset.tab !== tab;
   });
@@ -717,7 +723,29 @@ async function openClassCall(session) {
       width: '100%',
       height: '100%',
       userInfo: { displayName },
-      configOverwrite: { prejoinPageEnabled: true },
+      configOverwrite: {
+        // Was prejoinPageEnabled: true -- a stale/deprecated key. Jitsi
+        // moved this to prejoinConfig.enabled; confirmed against the
+        // current jitsi-meet source (interface_config.js's TOOLBAR_BUTTONS
+        // is itself deprecated in favor of this same configOverwrite
+        // object's toolbarButtons below).
+        prejoinConfig: { enabled: true },
+        // Curated for a classroom, not Jitsi's full default kitchen-sink
+        // toolbar: cuts things that don't apply here at all (Salesforce
+        // integration, livestreaming/recording -- neither works on the
+        // free public server without paid add-ons anyway) or duplicate
+        // functionality sQUIZit already provides its own way (invite/embed
+        // -- Share & Track already has a link/QR flow). Kept: core AV,
+        // chat, raise hand, participants, tile view (see the whole class
+        // at once), whiteboard (real teaching value), room lock (there's
+        // no lobby by default, so this is the one privacy control worth
+        // surfacing), settings, fullscreen, hangup last.
+        toolbarButtons: [
+          'microphone', 'camera', 'desktop', 'chat', 'raisehand',
+          'participants-pane', 'tileview', 'whiteboard', 'security',
+          'settings', 'fullscreen', 'hangup',
+        ],
+      },
     });
     // Fires from Jitsi's own in-call "leave" control -- same cleanup path as
     // the header close button below, so there's exactly one dispose route

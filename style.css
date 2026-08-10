@@ -703,6 +703,115 @@ textarea.text-input { resize: vertical; font-family: inherit; }
 .class-session-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-card); padding: var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; }
 .class-call-mount iframe { width: 100%; height: 100%; border: 0; }
 
+/* ============ Class tab + live call: "Obsidian Orbit" skin ============
+   Deliberately scoped to the Class tab and the call overlay only -- rest
+   of the app keeps its current warm cream/orange theme. switchTab() (see
+   app.js) sets #appShell[data-active-tab] so the shared header/nav also
+   go dark while Class is the active tab, so it reads as one unified dark
+   surface top-to-bottom instead of a black panel dropped under an
+   otherwise light header. Colors/shapes are lifted from the reference
+   design doc; fonts are approximated with system stacks (Space
+   Grotesk/Inter/Geist would need self-hosted font files to use for real,
+   can't be linked from a CDN here). */
+/* #tab-class only bleeds its own dark background as tall as its content
+   (e.g. the empty "No classes yet" state is short), but .app-shell itself
+   -- the actual full-viewport-height element sitting behind it -- keeps
+   its own cream/near-black background, which then shows through as a
+   seam below short content, down to the fixed bottom-nav. Recoloring
+   .app-shell directly (it's already min-height:100vh) removes that seam
+   regardless of content length, instead of trying to guess a min-height
+   for #tab-class across breakpoints. */
+#appShell[data-active-tab="class"] {
+  background: #131313;
+  --oo-bg: #131313;
+  --oo-bg-deep: #0e0e0e;
+  --oo-surface: #201f1f;
+  --oo-border: #3a3939;
+  --oo-primary: #ffbd8a;
+  --oo-on-primary: #4e2600;
+  --oo-secondary: #98cbff;
+  --oo-text: #e5e2e1;
+  --oo-text-muted: #a38c7d;
+}
+
+#appShell[data-active-tab="class"] .app-header {
+  background: var(--oo-bg-deep);
+  border-bottom: 1px solid var(--oo-border);
+}
+#appShell[data-active-tab="class"] .app-header-back,
+#appShell[data-active-tab="class"] #versionButton { color: var(--oo-text-muted); }
+#appShell[data-active-tab="class"] .app-header-version { color: var(--oo-text-muted); }
+
+#appShell[data-active-tab="class"] .bottom-nav {
+  background: var(--oo-bg-deep);
+  border-color: var(--oo-border);
+}
+#appShell[data-active-tab="class"] .bottom-nav-item { color: var(--oo-text-muted); }
+#appShell[data-active-tab="class"] .bottom-nav-item.is-active { color: var(--oo-primary); }
+#appShell[data-active-tab="class"] .bottom-nav-item.is-active .bottom-nav-icon {
+  background: transparent;
+  color: var(--oo-primary);
+  filter: drop-shadow(0 0 6px rgba(255, 149, 51, 0.65));
+}
+
+/* Bleeds the dark background flush to the header/nav edges by canceling
+   .screen's own padding with an equal negative margin, then re-applying
+   the same padding as internal padding -- content sits in the exact same
+   place, only the background now fills the whole panel instead of a
+   padded-in patch. */
+#appShell[data-active-tab="class"] #tab-class {
+  background: var(--oo-bg);
+  color: var(--oo-text);
+  margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) calc(var(--space-8) * -1);
+  padding: var(--space-4) var(--space-4) var(--space-8);
+}
+#appShell[data-active-tab="class"] #tab-class .screen-title { color: var(--oo-text); }
+#appShell[data-active-tab="class"] #tab-class .screen-sub { color: var(--oo-text-muted); }
+#appShell[data-active-tab="class"] #btnStartClass {
+  background: var(--oo-primary);
+  color: var(--oo-on-primary);
+  box-shadow: 0 0 20px rgba(255, 149, 51, 0.35);
+}
+#appShell[data-active-tab="class"] .class-session-card {
+  background: var(--oo-surface);
+  border-color: var(--oo-border);
+  box-shadow: none;
+  border-radius: 10px;
+}
+#appShell[data-active-tab="class"] .class-session-card .exam-card-title { color: var(--oo-text); }
+#appShell[data-active-tab="class"] .class-session-card .exam-card-meta { color: var(--oo-text-muted); }
+/* Join/Resume is the primary action (orange); Copy Link is secondary
+   (blue) -- same primary/secondary split as the reference doc's button
+   guidance, using the existing js-class-join/js-class-share hooks as
+   styling selectors since they're already unique per button. */
+#appShell[data-active-tab="class"] .js-class-join { color: var(--oo-primary); }
+#appShell[data-active-tab="class"] .js-class-share { color: var(--oo-secondary); }
+#appShell[data-active-tab="class"] .empty-note { color: var(--oo-text-muted); }
+
+/* Call overlay: .camera-overlay is already a black takeover by default,
+   so this only needs to layer the accent treatment on top -- header
+   surface, glowing title/close button -- not a background swap. */
+.class-call-overlay { background: #131313; }
+.class-call-overlay .camera-overlay-head {
+  background: #0e0e0e;
+  border-bottom: 1px solid #3a3939;
+}
+.class-call-overlay #classCallTitle {
+  color: #ffbd8a;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.class-call-overlay .camera-close-btn {
+  background: #201f1f;
+  border: 1px solid #3a3939;
+  color: #e5e2e1;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.class-call-overlay .camera-close-btn:hover {
+  border-color: #ffbd8a;
+  color: #ffbd8a;
+}
+
 .identity-summary-row { display: flex; align-items: center; gap: var(--space-3); margin-top: 10px; }
 .identity-summary-avatar {
   width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
@@ -846,6 +955,17 @@ input:checked + .slider:before {
     padding-bottom: var(--space-8); /* no bottom nav left to clear */
   }
 
+  /* .app-shell is normally centered with a capped width, which is
+     invisible on every other tab (cream content against the shell's own
+     cream background) but turns into a visible gap of stray body-cream
+     down the right edge once the shell goes near-black for Class -- same
+     fix as .class-call-overlay below: let it actually fill the viewport
+     instead of floating centered in it. */
+  #appShell[data-active-tab="class"] {
+    max-width: none;
+    margin: 0;
+  }
+
   /* Bottom tab bar -> left icon rail. .bottom-nav-item/.bottom-nav-icon/
      .bottom-nav-label need zero changes -- each item is already an
      icon-over-label vertical stack, so this is purely repositioning the
@@ -866,6 +986,23 @@ input:checked + .slider:before {
     padding-bottom: 0;
     border-top: none;
     border-right: 1px solid var(--color-border);
+  }
+
+  /* Live class call: today .class-call-overlay just inherits
+     .camera-overlay's phone-capture sizing verbatim (fixed, inset:0,
+     capped at 480px and centered) -- fine for a quick photo capture, but
+     it means an active class call sits in a narrow floating column with
+     the left nav rail buried underneath it, even on a 1440px monitor.
+     Widen it to start after the rail and fill the rest of the viewport;
+     the video grid/filmstrip/toolbar inside are Jitsi's own iframe
+     content (meet.jit.si, cross-origin) and already lay themselves out
+     responsively -- we can't restyle them directly, but handing Jitsi a
+     realistically-sized box instead of a phone-width one lets its own
+     responsive layout do the rest. */
+  .class-call-overlay {
+    left: 88px;
+    max-width: none;
+    margin: 0;
   }
 
   /* List-heavy screens -> responsive multi-column grids. Cards already
