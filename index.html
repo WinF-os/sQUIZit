@@ -41,49 +41,60 @@
 
     <!-- ============ HOME ============ -->
     <section class="screen tab-panel" id="tab-home" data-tab="home">
-      <div>
-        <p class="eyebrow">Dashboard overview</p>
-        <h2 class="screen-title">Good morning, Operator</h2>
-        <p class="screen-sub" id="homeExamsSummary"></p>
-      </div>
-
-      <button type="button" class="btn btn--primary btn--block" id="btnQuickCreate">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
-        Quick Create
-      </button>
-
-      <div class="card">
-        <div class="section-heading-row">
-          <span class="section-heading">Recent Exams</span>
-          <button type="button" class="link-btn" id="btnViewAllRecent">View all</button>
+      <!-- Two wrapper divs exist ONLY so the desktop breakpoint (see
+           style.css) can lay this tab out as a 2-column grid -- on mobile
+           they're invisible (still a plain flex-column stack), on desktop
+           .home-col-main/.home-col-side become the grid's two columns.
+           Nothing else in this file needs this pattern -- every other
+           desktop grid rule (Library/Monitoring/Class/Configure) works on
+           the existing markup with zero wrapper divs. -->
+      <div class="home-col-main">
+        <div>
+          <p class="eyebrow">Dashboard overview</p>
+          <h2 class="screen-title">Good morning, Operator</h2>
+          <p class="screen-sub" id="homeExamsSummary"></p>
         </div>
-        <ul class="recent-list" id="recentList"></ul>
-      </div>
 
-      <div class="stat-card-row">
-        <div class="stat-card stat-card--primary">
-          <p class="stat-card-label">Total graded</p>
-          <p class="stat-card-value">1,248</p>
-          <p class="stat-card-sub">+12% from last term</p>
+        <button type="button" class="btn btn--primary btn--block" id="btnQuickCreate">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
+          Quick Create
+        </button>
+
+        <div class="card">
+          <div class="section-heading-row">
+            <span class="section-heading">Recent Exams</span>
+            <button type="button" class="link-btn" id="btnViewAllRecent">View all</button>
+          </div>
+          <ul class="recent-list" id="recentList"></ul>
         </div>
-        <div class="stat-card stat-card--teal">
-          <p class="stat-card-label">Active students</p>
-          <p class="stat-card-value">156</p>
-          <p class="stat-card-sub">Across 4 sections</p>
+
+        <div class="stat-card-row">
+          <div class="stat-card stat-card--primary">
+            <p class="stat-card-label">Total graded</p>
+            <p class="stat-card-value">1,248</p>
+            <p class="stat-card-sub">+12% from last term</p>
+          </div>
+          <div class="stat-card stat-card--teal">
+            <p class="stat-card-label">Active students</p>
+            <p class="stat-card-value">156</p>
+            <p class="stat-card-sub">Across 4 sections</p>
+          </div>
         </div>
       </div>
 
-      <div class="card card--lavender">
-        <p class="section-heading">Suggested Topics</p>
-        <p class="screen-sub">Based on your recent uploads and curriculum trends.</p>
-        <ul class="topic-list" id="topicList"></ul>
-        <button type="button" class="btn btn--outline btn--block" id="btnExploreBank">Explore Question Bank</button>
-      </div>
+      <div class="home-col-side">
+        <div class="card card--lavender">
+          <p class="section-heading">Suggested Topics</p>
+          <p class="screen-sub">Based on your recent uploads and curriculum trends.</p>
+          <ul class="topic-list" id="topicList"></ul>
+          <button type="button" class="btn btn--outline btn--block" id="btnExploreBank">Explore Question Bank</button>
+        </div>
 
-      <div class="card tip-card">
-        <div class="tip-card-banner" aria-hidden="true"></div>
-        <p class="section-heading">Pro Tip: Auto-Grading</p>
-        <p class="screen-sub">Objective question types (Multiple Choice, True/False, Identification, Calculation) are graded instantly. Essay answers get AI-written feedback.</p>
+        <div class="card tip-card">
+          <div class="tip-card-banner" aria-hidden="true"></div>
+          <p class="section-heading">Pro Tip: Auto-Grading</p>
+          <p class="screen-sub">Objective question types (Multiple Choice, True/False, Identification, Calculation) are graded instantly. Essay answers get AI-written feedback.</p>
+        </div>
       </div>
     </section>
 
@@ -234,7 +245,7 @@
           <p class="screen-sub">Add each question by hand — no AI involved.</p>
         </div>
 
-        <div class="card">
+        <div class="card" id="manualQuestionFormCard">
           <label class="field-block">
             <span class="field-label">Question Type</span>
             <select class="select-input" id="manualTypeSelect">
@@ -261,13 +272,13 @@
           <button type="button" class="btn btn--outline btn--block" id="btnAddManualQuestion">+ Add Question</button>
         </div>
 
-        <div class="card">
+        <div class="card" id="manualQuestionsAddedCard">
           <p class="section-heading" style="margin-bottom:10px;">Questions Added (<span id="manualQuestionCount">0</span>)</p>
           <p class="empty-note" id="manualEmptyNote">No questions yet — add your first one above.</p>
           <div class="results-list" id="manualQuestionList"></div>
         </div>
 
-        <div class="card">
+        <div class="card" id="manualTimeLimitCard">
           <p class="field-label">Time Limit (optional)</p>
           <p class="screen-sub" style="margin-top:4px;">Starts counting down once the first question is answered. Leave blank for no limit.</p>
           <input type="number" min="1" step="1" class="text-input" id="manualTimeLimitInput" placeholder="Minutes (e.g. 30)" style="margin-top:8px;">
@@ -373,7 +384,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileIdentityCard">
         <p class="section-heading">Student Identity</p>
         <div class="identity-summary-row" id="identitySummaryRow">
           <div class="identity-summary-avatar" id="identitySummaryAvatar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg></div>
@@ -385,7 +396,7 @@
         <button type="button" class="btn btn--outline btn--block" id="btnEditStudentIdentity" style="margin-top:10px;">Edit Student Identity</button>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileGeminiCard">
         <p class="section-heading">Your Gemini API Keys</p>
         <p class="screen-sub" style="margin-top:6px;">Required for AI Generate and essay grading. Stored only in this browser. Add more than one (e.g. from different Google accounts) — sQUIZit automatically switches to the next one if a key's free quota runs out.</p>
 
@@ -404,7 +415,7 @@
         <p class="screen-sub" id="geminiKeyStatus" style="margin-top:8px;"></p>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileAppearanceCard">
         <p class="section-heading">Appearance</p>
         <div class="theme-toggle-row">
           <span class="theme-toggle-icon" id="themeIcon">☀️</span>
@@ -416,7 +427,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileUpdatesCard">
         <div class="section-heading-row">
           <p class="section-heading">Updates</p>
           <button type="button" class="btn btn-icon" id="btnShareUpdateLink" aria-label="Share download link" title="Share download link">
@@ -429,17 +440,17 @@
         <p class="screen-sub" id="profileUpdateStatus" style="margin-top:6px;"></p>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileAboutCard">
         <p class="section-heading">About this app</p>
         <p class="screen-sub" style="margin-top:8px;">sQUIZit turns a photo of your notes or textbook pages into a ready-to-take exam using Google Gemini. Question generation runs through a Supabase Edge Function so the AI key stays off your device. Prefer not to use AI? Manual Build and Auto-Extract on the Create screen work fully offline of Gemini.</p>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileDataCard">
         <p class="section-heading">Data</p>
         <p class="screen-sub" style="margin-top:8px;">Your exam library (completed exams and drafts) is saved in this browser's storage and stays there across visits — see the Library tab. Clearing your browser data will remove it.</p>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileBackupCard">
         <p class="section-heading">Backup &amp; Restore</p>
         <p class="screen-sub" style="margin-top:6px;">Save a copy of your exam library so it survives a lost phone, a cleared browser, or moving to a new device.</p>
 
@@ -474,7 +485,7 @@
         <p class="screen-sub" id="backupStatusText" style="margin-top:8px;"></p>
       </div>
 
-      <div class="card">
+      <div class="card" id="profileInstructorCard">
         <p class="section-heading">Instructor Log In</p>
         <p class="screen-sub" style="margin-top:6px;">Teaching a class? Log in with your own Digital ID to add students to your roster and see their progress.</p>
         <button type="button" class="btn btn--outline btn--block" id="btnInstructorLogin" style="margin-top:10px;">Instructor Log In &#8599;</button>

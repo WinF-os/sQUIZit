@@ -13,9 +13,9 @@ android {
         // it -- this was hardcoded to 1 across every build this session,
         // which is the actual reason "uninstall first" kept being necessary.
         // Convention: major*10000 + minor*100 + patch, mirrors APP_VERSION
-        // in app.js (currently 'QF_SYS_V.1.2.24') -- bump both together.
-        versionCode 10224
-        versionName "1.2.24"
+        // in app.js (currently 'QF_SYS_V.1.2.25') -- bump both together.
+        versionCode 10225
+        versionName "1.2.25"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
