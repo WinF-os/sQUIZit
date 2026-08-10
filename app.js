@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'QF_SYS_V.1.2.31';
+const APP_VERSION = 'QF_SYS_V.1.2.32';
 
 // Diagnostic only: captures the first uncaught error/rejection anywhere in
 // the app so it can be surfaced in the UI (Profile > Backup & Restore) --
@@ -730,6 +730,15 @@ async function openClassCall(session) {
         // is itself deprecated in favor of this same configOverwrite
         // object's toolbarButtons below).
         prejoinConfig: { enabled: true },
+        // Replaces the Jitsi fox/wordmark watermark with our own logo.
+        // DEFAULT_LOGO_URL (old interfaceConfig key) is deprecated in
+        // favor of this configOverwrite key, confirmed against current
+        // jitsi-meet source -- it's just an <img src>, so a plain HTTPS
+        // URL to our own icon works cross-origin with no special CORS
+        // setup needed. Resolved via URL() rather than a string join so
+        // it's correct whether this page loaded as /sQUIZit/ or
+        // /sQUIZit/index.html.
+        defaultLogoUrl: new URL('icons/wordmark.png', location.href).href,
         // meet.jit.si runs a face-landmark/expression-tracking pipeline
         // (visible in devtools as human.esm.js + face-landmarks-worker,
         // a bundled TensorFlow.js model) by default on every call. In
