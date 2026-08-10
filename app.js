@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'QF_SYS_V.1.2.30';
+const APP_VERSION = 'QF_SYS_V.1.2.31';
 
 // Diagnostic only: captures the first uncaught error/rejection anywhere in
 // the app so it can be surfaced in the UI (Profile > Backup & Restore) --
@@ -730,6 +730,21 @@ async function openClassCall(session) {
         // is itself deprecated in favor of this same configOverwrite
         // object's toolbarButtons below).
         prejoinConfig: { enabled: true },
+        // meet.jit.si runs a face-landmark/expression-tracking pipeline
+        // (visible in devtools as human.esm.js + face-landmarks-worker,
+        // a bundled TensorFlow.js model) by default on every call. In
+        // environments where it can't get a GPU adapter it logs "No
+        // available adapters" and the resulting processed video frame
+        // comes out black instead of falling back to the raw camera feed
+        // -- confirmed against jitsi-meet's own config.js, which ships
+        // this whole block, off by default, specifically so embedders can
+        // override it like this. None of it serves a classroom use case.
+        faceLandmarks: {
+          enableFaceCentering: false,
+          enableFaceExpressionsDetection: false,
+          enableDisplayFaceExpressions: false,
+          enableRTCStats: false,
+        },
         // Curated for a classroom, not Jitsi's full default kitchen-sink
         // toolbar: cuts things that don't apply here at all (Salesforce
         // integration, livestreaming/recording -- neither works on the
