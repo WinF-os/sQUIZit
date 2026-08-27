@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'QF_SYS_V.1.2.32';
+const APP_VERSION = 'QF_SYS_V.1.2.33';
 
 // Diagnostic only: captures the first uncaught error/rejection anywhere in
 // the app so it can be surfaced in the UI (Profile > Backup & Restore) --
@@ -41,7 +41,14 @@ const state = {
   libraryTab: 'completed',
   librarySearch: '',
   cameraStream: null,
-  cameraMode: 'source', // 'source' (document/page scan) | 'identity' (selfie for Student Identity)
+  cameraMode: 'source', // 'source' (document/page scan) | 'identity' (selfie for Student Identity) | 'read' (Read Aloud page scan)
+  readImages: [], // { dataUrl, mimeType } -- Read Aloud tab's own capture list, separate from sourceImages
+  readText: '',
+  readChunks: [],
+  readAudioCache: {}, // chunk index -> base64 mp3, fetched from text-to-speech Edge Function on demand
+  readChunkIndex: 0,
+  readIsPlaying: false,
+  readAudioEl: null,
   geminiApiKeys: loadGeminiKeys(),
   studentIdentity: loadStudentIdentity(),
   activeKeyIndex: 0,
@@ -1086,12 +1093,188 @@ $('btnCameraShutter').addEventListener('click', () => {
     applyIdentityPhoto(dataUrl);
     return;
   }
+  if (state.cameraMode === 'read') {
+    state.readImages.push({ dataUrl, mimeType: 'image/jpeg' });
+    closeCamera();
+    renderReadPreview();
+    return;
+  }
   const capturedImage = { dataUrl, mimeType: 'image/jpeg' };
   state.sourceImages.push(capturedImage);
   closeCamera();
   renderSourcePreview();
   updateContinueGating();
   checkAddedImagesLegibility([capturedImage]);
+});
+
+/* ============ Read Aloud ============ */
+// Photo(s) of a page -> transcribe-page Edge Function (Gemini vision, BYOK
+// same as Create's photo flow) -> plain text -> chunked (Google TTS caps a
+// single text:synthesize call at 5000 UTF-8 bytes) -> text-to-speech Edge
+// Function per chunk (shared server-side Google Cloud TTS key, stays inside
+// the free WaveNet 4M-chars/month tier) -> played back as a queue so a long
+// chapter starts playing after the first chunk instead of waiting on the
+// whole thing, with the next chunk prefetched in the background while the
+// current one plays.
+
+const READ_TTS_VOICE = 'en-US-AndrewNeural';
+const READ_CHUNK_MAX_BYTES = 3500; // safety margin under Google's 5000-byte cap
+
+$('btnReadUpload').addEventListener('click', () => $('readFileInput').click());
+$('readFileInput').addEventListener('change', async (event) => {
+  const files = Array.from(event.target.files || []);
+  const loaded = await Promise.all(files.map(async (file) => ({ dataUrl: await resizeImageDataUrl(await fileToDataUrl(file)), mimeType: 'image/jpeg' })));
+  state.readImages.push(...loaded);
+  event.target.value = '';
+  renderReadPreview();
+});
+$('btnReadCamera').addEventListener('click', () => openCamera('read'));
+
+function renderReadPreview() {
+  const row = $('readPreviewRow');
+  if (!state.readImages.length) { row.hidden = true; row.innerHTML = ''; }
+  else {
+    row.hidden = false;
+    row.innerHTML = state.readImages.map((img, i) => `
+      <div class="source-preview-thumb">
+        <img src="${img.dataUrl}" alt="Page ${i + 1}">
+        <button type="button" class="source-preview-remove js-remove-read-image" data-index="${i}" aria-label="Remove image">✕</button>
+      </div>
+    `).join('');
+    row.querySelectorAll('.js-remove-read-image').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.readImages.splice(Number(btn.dataset.index), 1);
+        renderReadPreview();
+      });
+    });
+  }
+  $('btnReadTranscribe').disabled = state.readImages.length === 0;
+}
+
+function splitTextIntoChunks(text, maxBytes) {
+  const encoder = new TextEncoder();
+  const sentences = text.replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]*\s*|[^.!?]+$/g) || [text];
+  const chunks = [];
+  let current = '';
+  for (const sentence of sentences) {
+    const candidate = current ? current + sentence : sentence;
+    if (encoder.encode(candidate).length > maxBytes && current) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+$('btnReadTranscribe').addEventListener('click', async () => {
+  if (!state.readImages.length) return;
+  if (!state.geminiApiKeys.length) { alert('Add your Gemini API key in Profile first.'); return; }
+  $('readCaptureSection').hidden = true;
+  $('readLoadingCard').hidden = false;
+  $('readLoadingText').textContent = 'Reading the page…';
+  try {
+    const data = await callWithKeyRotation('transcribe-page', {
+      images: state.readImages.map((img) => ({ dataUrl: img.dataUrl, mimeType: img.mimeType })),
+    });
+    state.readText = data.text;
+    state.readChunks = splitTextIntoChunks(data.text, READ_CHUNK_MAX_BYTES);
+    state.readAudioCache = {};
+    state.readChunkIndex = 0;
+    state.readIsPlaying = false;
+    $('readTranscriptArea').value = state.readText;
+    $('readPlayerStatus').textContent = `Ready to play — ${state.readChunks.length} part${state.readChunks.length === 1 ? '' : 's'}.`;
+    $('btnReadPlayPause').textContent = '▶ Play';
+    $('readLoadingCard').hidden = true;
+    $('readResultSection').hidden = false;
+  } catch (err) {
+    $('readLoadingCard').hidden = true;
+    $('readCaptureSection').hidden = false;
+    alert(err.message || 'Could not read that page. Try again.');
+  }
+});
+
+async function fetchChunkAudio(index) {
+  if (state.readAudioCache[index]) return state.readAudioCache[index];
+  const data = await callEdgeFunction('text-to-speech', { text: state.readChunks[index], voice: READ_TTS_VOICE });
+  state.readAudioCache[index] = data.audioContent;
+  return data.audioContent;
+}
+
+function getReadAudioEl() {
+  if (!state.readAudioEl) {
+    state.readAudioEl = new Audio();
+    state.readAudioEl.addEventListener('ended', () => {
+      playReadChunk(state.readChunkIndex + 1);
+    });
+  }
+  return state.readAudioEl;
+}
+
+async function playReadChunk(index) {
+  if (index >= state.readChunks.length) {
+    state.readIsPlaying = false;
+    state.readChunkIndex = 0;
+    $('btnReadPlayPause').textContent = '▶ Play';
+    $('readPlayerStatus').textContent = `Finished — ${state.readChunks.length} part${state.readChunks.length === 1 ? '' : 's'}.`;
+    return;
+  }
+  state.readChunkIndex = index;
+  state.readIsPlaying = true;
+  $('btnReadPlayPause').textContent = '⏸ Pause';
+  $('readPlayerStatus').textContent = `Loading part ${index + 1} of ${state.readChunks.length}…`;
+  try {
+    const audioContent = await fetchChunkAudio(index);
+    if (!state.readIsPlaying || state.readChunkIndex !== index) return; // stopped/paused while loading
+    const audio = getReadAudioEl();
+    audio.src = `data:audio/mp3;base64,${audioContent}`;
+    await audio.play();
+    $('readPlayerStatus').textContent = `Playing part ${index + 1} of ${state.readChunks.length}…`;
+    if (index + 1 < state.readChunks.length) fetchChunkAudio(index + 1).catch(() => {});
+  } catch (err) {
+    state.readIsPlaying = false;
+    $('btnReadPlayPause').textContent = '▶ Play';
+    $('readPlayerStatus').textContent = err.message || 'Could not play audio.';
+  }
+}
+
+$('btnReadPlayPause').addEventListener('click', () => {
+  if (state.readIsPlaying) {
+    getReadAudioEl().pause();
+    state.readIsPlaying = false;
+    $('btnReadPlayPause').textContent = '▶ Play';
+    $('readPlayerStatus').textContent = `Paused — part ${state.readChunkIndex + 1} of ${state.readChunks.length}.`;
+  } else if (state.readAudioEl && state.readAudioEl.src && state.readAudioEl.currentTime > 0 && !state.readAudioEl.ended) {
+    state.readIsPlaying = true;
+    $('btnReadPlayPause').textContent = '⏸ Pause';
+    getReadAudioEl().play();
+    $('readPlayerStatus').textContent = `Playing part ${state.readChunkIndex + 1} of ${state.readChunks.length}…`;
+  } else {
+    playReadChunk(state.readChunkIndex);
+  }
+});
+
+$('btnReadStop').addEventListener('click', () => {
+  if (state.readAudioEl) { state.readAudioEl.pause(); state.readAudioEl.currentTime = 0; }
+  state.readIsPlaying = false;
+  state.readChunkIndex = 0;
+  $('btnReadPlayPause').textContent = '▶ Play';
+  $('readPlayerStatus').textContent = `Ready to play — ${state.readChunks.length} part${state.readChunks.length === 1 ? '' : 's'}.`;
+});
+
+$('btnReadStartOver').addEventListener('click', () => {
+  if (state.readAudioEl) { state.readAudioEl.pause(); state.readAudioEl.src = ''; }
+  state.readImages = [];
+  state.readText = '';
+  state.readChunks = [];
+  state.readAudioCache = {};
+  state.readChunkIndex = 0;
+  state.readIsPlaying = false;
+  renderReadPreview();
+  $('readResultSection').hidden = true;
+  $('readCaptureSection').hidden = false;
 });
 
 /* ============ Student Identity ============ */
