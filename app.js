@@ -1194,6 +1194,19 @@ function splitTextIntoChunks(text, maxBytes) {
   return chunks;
 }
 
+function beginReadSession(text) {
+  state.readText = text;
+  state.readChunks = splitTextIntoChunks(text, READ_CHUNK_MAX_BYTES);
+  state.readAudioCache = {};
+  state.readChunkIndex = 0;
+  state.readIsPlaying = false;
+  $('readTranscriptArea').value = state.readText;
+  $('readPlayerStatus').textContent = `Ready to play — ${state.readChunks.length} part${state.readChunks.length === 1 ? '' : 's'}.`;
+  $('btnReadPlayPause').textContent = '▶ Play';
+  $('readCaptureSection').hidden = true;
+  $('readResultSection').hidden = false;
+}
+
 $('btnReadTranscribe').addEventListener('click', async () => {
   if (!state.readImages.length) return;
   if (!state.geminiApiKeys.length) { alert('Add your Gemini API key in Profile first.'); return; }
@@ -1204,21 +1217,24 @@ $('btnReadTranscribe').addEventListener('click', async () => {
     const data = await callWithKeyRotation('transcribe-page', {
       images: state.readImages.map((img) => ({ dataUrl: img.dataUrl, mimeType: img.mimeType })),
     });
-    state.readText = data.text;
-    state.readChunks = splitTextIntoChunks(data.text, READ_CHUNK_MAX_BYTES);
-    state.readAudioCache = {};
-    state.readChunkIndex = 0;
-    state.readIsPlaying = false;
-    $('readTranscriptArea').value = state.readText;
-    $('readPlayerStatus').textContent = `Ready to play — ${state.readChunks.length} part${state.readChunks.length === 1 ? '' : 's'}.`;
-    $('btnReadPlayPause').textContent = '▶ Play';
     $('readLoadingCard').hidden = true;
-    $('readResultSection').hidden = false;
+    beginReadSession(data.text);
   } catch (err) {
     $('readLoadingCard').hidden = true;
     $('readCaptureSection').hidden = false;
     alert(err.message || 'Could not read that page. Try again.');
   }
+});
+
+$('btnReadTypeText').addEventListener('click', () => {
+  $('readTypedSection').hidden = false;
+  $('readTypedInput').focus();
+});
+
+$('btnReadUseTypedText').addEventListener('click', () => {
+  const text = $('readTypedInput').value.trim();
+  if (!text) { alert('Type or paste some text first.'); return; }
+  beginReadSession(text);
 });
 
 async function fetchChunkAudio(index) {
@@ -1299,6 +1315,8 @@ $('btnReadStartOver').addEventListener('click', () => {
   state.readChunkIndex = 0;
   state.readIsPlaying = false;
   renderReadPreview();
+  $('readTypedInput').value = '';
+  $('readTypedSection').hidden = true;
   $('readResultSection').hidden = true;
   $('readCaptureSection').hidden = false;
 });

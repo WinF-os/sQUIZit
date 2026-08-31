@@ -356,7 +356,7 @@
     <section class="screen tab-panel" id="tab-read" data-tab="read" hidden>
       <div>
         <h2 class="screen-title">Read Aloud</h2>
-        <p class="screen-sub">Photograph a textbook or notes page and have it read back to you.</p>
+        <p class="screen-sub">Photograph a textbook or notes page, or type/paste text, and have it read back to you.</p>
       </div>
 
       <div id="readCaptureSection">
@@ -376,6 +376,14 @@
             <span class="source-card-title">Camera Capture</span>
             <span class="source-card-sub">Scan the page live</span>
           </button>
+
+          <button type="button" class="source-card" id="btnReadTypeText">
+            <span class="source-card-icon source-card-icon--muted">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M4 16l10-10 4 4-10 10H4v-4z" /></svg>
+            </span>
+            <span class="source-card-title">Type or Paste Text</span>
+            <span class="source-card-sub">Skip the photo entirely</span>
+          </button>
         </div>
         <input type="file" id="readFileInput" accept="image/*" multiple hidden>
 
@@ -383,6 +391,11 @@
         <p class="empty-note" id="readEmptyNote" hidden></p>
 
         <button type="button" class="btn btn--primary btn--block" id="btnReadTranscribe" disabled style="margin-top:14px;">Transcribe &amp; Read</button>
+
+        <div id="readTypedSection" hidden style="margin-top:14px;">
+          <textarea class="text-input" id="readTypedInput" rows="8" placeholder="Paste or type the text you want read aloud…"></textarea>
+          <button type="button" class="btn btn--primary btn--block" id="btnReadUseTypedText" style="margin-top:10px;">Read This Text</button>
+        </div>
       </div>
 
       <div class="card" id="readLoadingCard" hidden>
