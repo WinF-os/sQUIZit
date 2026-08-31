@@ -1109,16 +1109,41 @@ $('btnCameraShutter').addEventListener('click', () => {
 
 /* ============ Read Aloud ============ */
 // Photo(s) of a page -> transcribe-page Edge Function (Gemini vision, BYOK
-// same as Create's photo flow) -> plain text -> chunked (Google TTS caps a
-// single text:synthesize call at 5000 UTF-8 bytes) -> text-to-speech Edge
-// Function per chunk (shared server-side Google Cloud TTS key, stays inside
-// the free WaveNet 4M-chars/month tier) -> played back as a queue so a long
-// chapter starts playing after the first chunk instead of waiting on the
-// whole thing, with the next chunk prefetched in the background while the
-// current one plays.
+// same as Create's photo flow) -> plain text -> chunked (Azure's REST TTS
+// endpoint caps SSML input well under this) -> text-to-speech Edge Function
+// per chunk (shared server-side Azure Cognitive Services Speech key, stays
+// inside the free F0 500K-chars/month tier) -> played back as a queue so a
+// long chapter starts playing after the first chunk instead of waiting on
+// the whole thing, with the next chunk prefetched in the background while
+// the current one plays.
 
-const READ_TTS_VOICE = 'en-US-AndrewNeural';
-const READ_CHUNK_MAX_BYTES = 3500; // safety margin under Google's 5000-byte cap
+// Textbook pages are often bilingual (English body text with a Tagalog
+// passage, or vice versa), so language is detected per CHUNK, not once for
+// the whole page -- an English voice reads Tagalog text in an English
+// accent (and the reverse sounds just as wrong), so each chunk gets whichever
+// voice actually matches it.
+const READ_TTS_VOICE_EN = 'en-US-AndrewNeural';
+const READ_TTS_VOICE_FIL = 'fil-PH-BlessicaNeural';
+// Common Tagalog function words that essentially never appear in English
+// running text -- cheap and reliable without pulling in a language-ID
+// library for what's ultimately a two-way choice.
+const TAGALOG_SIGNAL_WORDS = new Set([
+  'ang', 'ng', 'mga', 'iyon', 'ito', 'siya', 'sila', 'tayo', 'kami', 'ikaw',
+  'hindi', 'oo', 'opo', 'naman', 'lang', 'din', 'rin', 'yung', 'kasi', 'kung',
+  'dahil', 'para', 'may', 'wala', 'paano', 'saan', 'bakit', 'sino', 'alin',
+  'gaano', 'nang', 'niya', 'nila', 'natin', 'namin', 'kanila', 'atin',
+  'sana', 'baka', 'lahat', 'bawat', 'dito', 'doon', 'kanina', 'ngayon',
+  'bukas', 'kahapon', 'pati', 'bago', 'pagkatapos',
+]);
+
+function detectChunkVoice(text) {
+  const words = (text.toLowerCase().match(/[a-zà-ÿ']+/g) || []);
+  if (!words.length) return READ_TTS_VOICE_EN;
+  const hits = words.reduce((n, w) => n + (TAGALOG_SIGNAL_WORDS.has(w) ? 1 : 0), 0);
+  return (hits / words.length) >= 0.08 ? READ_TTS_VOICE_FIL : READ_TTS_VOICE_EN;
+}
+
+const READ_CHUNK_MAX_BYTES = 3500; // safety margin under Azure's per-request cap
 
 $('btnReadUpload').addEventListener('click', () => $('readFileInput').click());
 $('readFileInput').addEventListener('change', async (event) => {
@@ -1198,7 +1223,8 @@ $('btnReadTranscribe').addEventListener('click', async () => {
 
 async function fetchChunkAudio(index) {
   if (state.readAudioCache[index]) return state.readAudioCache[index];
-  const data = await callEdgeFunction('text-to-speech', { text: state.readChunks[index], voice: READ_TTS_VOICE });
+  const text = state.readChunks[index];
+  const data = await callEdgeFunction('text-to-speech', { text, voice: detectChunkVoice(text) });
   state.readAudioCache[index] = data.audioContent;
   return data.audioContent;
 }

@@ -54,7 +54,12 @@ Deno.serve(async (req) => {
     }
     const accessToken = await tokenRes.text()
 
-    const ssml = `<speak version='1.0' xml:lang='en-US'><voice xml:lang='en-US' name='${voice}'>${escapeSsml(text)}</voice></speak>`
+    // Voice names are `{locale}-{Name}Neural` (e.g. en-US-AndrewNeural,
+    // fil-PH-BlessicaNeural) -- xml:lang must match the voice's own locale or
+    // Azure applies the wrong accent to non-English voices.
+    const localeMatch = voice.match(/^([a-z]{2,3}-[A-Z]{2})-/)
+    const locale = localeMatch ? localeMatch[1] : 'en-US'
+    const ssml = `<speak version='1.0' xml:lang='${locale}'><voice xml:lang='${locale}' name='${voice}'>${escapeSsml(text)}</voice></speak>`
 
     const ttsRes = await fetch(
       `https://${AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`,
