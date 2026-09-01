@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = 'QF_SYS_V.1.2.33';
+const APP_VERSION = 'QF_SYS_V.1.2.34';
 
 // Diagnostic only: captures the first uncaught error/rejection anywhere in
 // the app so it can be surfaced in the UI (Profile > Backup & Restore) --
@@ -2049,26 +2049,74 @@ const SCRATCHPAD_COLORS = ['#12172B', '#E0455C', '#F07824', '#22B27D'];
 function scratchpadHtml() {
   return `
     <div class="scratchpad-card">
-      <div class="scratchpad-toolbar">
-        <div class="scratchpad-colors">
-          ${SCRATCHPAD_COLORS.map((c, i) => `<button type="button" class="scratchpad-swatch${i === 0 ? ' is-active' : ''}" data-color="${c}" style="background:${c}" aria-label="Color"></button>`).join('')}
-          <button type="button" class="scratchpad-tool is-active" data-tool="pen" aria-label="Pen">✎</button>
-          <button type="button" class="scratchpad-tool" data-tool="eraser" aria-label="Eraser">🧹</button>
-          <button type="button" class="scratchpad-tool" data-tool="pan" aria-label="Pan/drag">✋</button>
+      <div class="scratchpad-mode-tabs">
+        <button type="button" class="scratchpad-mode-tab is-active" data-mode="draw">✎ Free Write</button>
+        <button type="button" class="scratchpad-mode-tab" data-mode="grid">▦ Grid Solve</button>
+      </div>
+
+      <div class="scratchpad-pad" data-pad="draw">
+        <div class="scratchpad-toolbar">
+          <div class="scratchpad-colors">
+            ${SCRATCHPAD_COLORS.map((c, i) => `<button type="button" class="scratchpad-swatch${i === 0 ? ' is-active' : ''}" data-color="${c}" style="background:${c}" aria-label="Color"></button>`).join('')}
+            <button type="button" class="scratchpad-tool is-active" data-tool="pen" aria-label="Pen">✎</button>
+            <button type="button" class="scratchpad-tool" data-tool="eraser" aria-label="Eraser">🧹</button>
+            <button type="button" class="scratchpad-tool" data-tool="pan" aria-label="Pan/drag">✋</button>
+          </div>
+          <input type="range" min="1" max="16" value="3" class="scratchpad-thickness" id="scratchpadThickness" aria-label="Line thickness">
+          <div class="scratchpad-actions">
+            <button type="button" class="count-btn" id="btnScratchpadZoomOut" aria-label="Zoom out">−</button>
+            <button type="button" class="count-btn" id="btnScratchpadZoomExtent" aria-label="Reset zoom">⤢</button>
+            <button type="button" class="count-btn" id="btnScratchpadZoomIn" aria-label="Zoom in">+</button>
+            <button type="button" class="count-btn" id="btnScratchpadFullscreen" aria-label="Fullscreen">⛶</button>
+            <button type="button" class="count-btn" id="btnScratchpadClear" aria-label="Clear">🗑</button>
+          </div>
         </div>
-        <input type="range" min="1" max="16" value="3" class="scratchpad-thickness" id="scratchpadThickness" aria-label="Line thickness">
-        <div class="scratchpad-actions">
-          <button type="button" class="count-btn" id="btnScratchpadZoomOut" aria-label="Zoom out">−</button>
-          <button type="button" class="count-btn" id="btnScratchpadZoomExtent" aria-label="Reset zoom">⤢</button>
-          <button type="button" class="count-btn" id="btnScratchpadZoomIn" aria-label="Zoom in">+</button>
-          <button type="button" class="count-btn" id="btnScratchpadExpand" aria-label="Expand">⤢H</button>
-          <button type="button" class="count-btn" id="btnScratchpadClear" aria-label="Clear">🗑</button>
+        <div class="scratchpad-viewport" id="scratchpadViewport">
+          <canvas id="scratchpadCanvas" width="1000" height="600"></canvas>
+          <button type="button" class="scratchpad-fs-close" id="btnScratchpadFsClose">✕ Exit fullscreen</button>
         </div>
       </div>
-      <div class="scratchpad-viewport" id="scratchpadViewport">
-        <canvas id="scratchpadCanvas" width="1000" height="600"></canvas>
+
+      <div class="scratchpad-pad" data-pad="grid" hidden>
+        ${gridPadHtml()}
       </div>
     </div>`;
+}
+
+// Grid Solve -- a column-arithmetic pad (one digit/symbol per cell) for
+// working a problem out by hand instead of freehand drawing. The "Borrow"
+// tool turns press-and-hold on a digit into the classic paper-subtraction
+// gesture: the held digit drops by 1 and turns the danger color (it "lent
+// out" a unit), and the digit immediately to its right gets a small raised
+// 1 pinned to its upper-left (the borrowed ten arriving there) -- holding
+// an already-borrowed digit again undoes exactly that, restoring its
+// original value so a wrong borrow isn't a dead end.
+const GRIDPAD_COLS = 9;
+const GRIDPAD_DEFAULT_ROWS = 5;
+const GRIDPAD_ALLOWED = /[0-9,.+\-×÷=]/;
+
+function gridPadRowHtml(row) {
+  return `<div class="gridpad-row" data-row="${row}">${Array.from({ length: GRIDPAD_COLS }).map((_, col) => `
+    <div class="gridpad-cell" data-row="${row}" data-col="${col}">
+      <input type="text" class="gridpad-input" maxlength="1" inputmode="text" autocomplete="off" data-row="${row}" data-col="${col}">
+    </div>`).join('')}</div>`;
+}
+
+function gridPadHtml() {
+  const rows = Array.from({ length: GRIDPAD_DEFAULT_ROWS }).map((_, r) => gridPadRowHtml(r)).join('');
+  return `
+    <div class="gridpad-toolbar" id="gridpadToolbar">
+      <div class="scratchpad-colors">
+        <button type="button" class="scratchpad-tool is-active" data-gtool="type" aria-label="Type">✎</button>
+        <button type="button" class="scratchpad-tool" data-gtool="borrow" aria-label="Borrow">↩</button>
+      </div>
+      <div class="scratchpad-actions">
+        <button type="button" class="count-btn" id="btnGridAddRow" aria-label="Add row">+Row</button>
+        <button type="button" class="count-btn" id="btnGridClear" aria-label="Clear grid">🗑</button>
+      </div>
+    </div>
+    <p class="gridpad-hint" id="gridpadHint">Tap a cell to type a digit or symbol. Switch to ↩ Borrow, then press and hold a digit to borrow from it.</p>
+    <div class="gridpad-grid" id="gridpadGrid">${rows}</div>`;
 }
 
 function setupScratchpad() {
@@ -2155,9 +2203,137 @@ function setupScratchpad() {
   $('btnScratchpadZoomOut').addEventListener('click', () => { zoom = Math.max(0.5, zoom - 0.25); applyZoom(); });
   $('btnScratchpadZoomExtent').addEventListener('click', () => { zoom = 1; applyZoom(); viewport.scrollLeft = 0; viewport.scrollTop = 0; });
   $('btnScratchpadClear').addEventListener('click', () => { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); });
-  $('btnScratchpadExpand').addEventListener('click', (e) => {
-    viewport.classList.toggle('is-expanded');
-    e.target.textContent = viewport.classList.contains('is-expanded') ? '⤡H' : '⤢H';
+
+  function fitCanvasFullscreen() {
+    const availW = window.innerWidth - 24;
+    const availH = window.innerHeight - 24;
+    const scale = Math.min(availW / canvas.width, availH / canvas.height);
+    canvas.style.width = `${canvas.width * scale}px`;
+    canvas.style.height = `${canvas.height * scale}px`;
+  }
+  function setFullscreen(on) {
+    viewport.classList.toggle('is-fullscreen', on);
+    document.body.classList.toggle('scratchpad-fs-lock', on);
+    $('btnScratchpadFullscreen').textContent = on ? '⤡' : '⛶';
+    if (on) fitCanvasFullscreen(); else applyZoom();
+  }
+  $('btnScratchpadFullscreen').addEventListener('click', () => setFullscreen(!viewport.classList.contains('is-fullscreen')));
+  $('btnScratchpadFsClose').addEventListener('click', () => setFullscreen(false));
+  window.addEventListener('resize', () => { if (viewport.classList.contains('is-fullscreen')) fitCanvasFullscreen(); });
+
+  const card = viewport.closest('.scratchpad-card');
+  card.querySelectorAll('.scratchpad-mode-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      card.querySelectorAll('.scratchpad-mode-tab').forEach((t) => t.classList.remove('is-active'));
+      tab.classList.add('is-active');
+      card.querySelectorAll('.scratchpad-pad').forEach((p) => { p.hidden = p.dataset.pad !== tab.dataset.mode; });
+    });
+  });
+
+  setupGridPad();
+}
+
+function setupGridPad() {
+  const grid = $('gridpadGrid');
+  const hint = $('gridpadHint');
+  let gtool = 'type';
+
+  function cellAt(row, col) { return grid.querySelector(`.gridpad-cell[data-row="${row}"][data-col="${col}"]`); }
+  function inputAt(row, col) { const cell = cellAt(row, col); return cell ? cell.querySelector('.gridpad-input') : null; }
+  function isDigit(input) { return !!input && /^[0-9]$/.test(input.value); }
+
+  function normalizeChar(ch) {
+    if (ch === 'x' || ch === 'X' || ch === '*') return '×';
+    if (ch === '/') return '÷';
+    return ch;
+  }
+
+  function wireCell(cell) {
+    const input = cell.querySelector('.gridpad-input');
+    input.addEventListener('input', () => {
+      let v = normalizeChar(input.value.slice(-1) || '');
+      if (v && !GRIDPAD_ALLOWED.test(v)) v = '';
+      input.value = v;
+      if (v) {
+        const next = inputAt(Number(input.dataset.row), Number(input.dataset.col) + 1);
+        if (next) next.focus();
+      }
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !input.value) {
+        const prev = inputAt(Number(input.dataset.row), Number(input.dataset.col) - 1);
+        if (prev) prev.focus();
+      }
+    });
+
+    let holdTimer = null;
+    function flash() {
+      cell.classList.add('gridpad-flash');
+      setTimeout(() => cell.classList.remove('gridpad-flash'), 300);
+    }
+    function toggleBorrow() {
+      const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
+      const rightCell = cellAt(row, col + 1);
+      if (cell.classList.contains('is-borrowed')) {
+        input.value = cell.dataset.preborrow || input.value;
+        delete cell.dataset.preborrow;
+        cell.classList.remove('is-borrowed');
+        if (rightCell) rightCell.removeAttribute('data-carry');
+        return;
+      }
+      if (!isDigit(input) || !rightCell || !isDigit(rightCell.querySelector('.gridpad-input'))) { flash(); return; }
+      const val = Number(input.value);
+      cell.dataset.preborrow = input.value;
+      input.value = String(val === 0 ? 9 : val - 1);
+      cell.classList.add('is-borrowed');
+      rightCell.setAttribute('data-carry', '1');
+    }
+    cell.addEventListener('pointerdown', () => {
+      if (gtool !== 'borrow') return;
+      holdTimer = setTimeout(() => { toggleBorrow(); holdTimer = null; }, 500);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((evt) => {
+      cell.addEventListener(evt, () => {
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; if (evt === 'pointerup' && gtool === 'borrow') flash(); }
+      });
+    });
+  }
+
+  function applyReadonlyState() {
+    // Read-only while in Borrow mode so tapping a digit to hold it down
+    // doesn't also pop the on-screen keyboard and fight the long-press.
+    grid.querySelectorAll('.gridpad-input').forEach((input) => { input.readOnly = gtool === 'borrow'; });
+  }
+
+  grid.querySelectorAll('.gridpad-cell').forEach(wireCell);
+
+  const toolbar = $('gridpadToolbar');
+  toolbar.querySelectorAll('[data-gtool]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      gtool = btn.dataset.gtool;
+      toolbar.querySelectorAll('[data-gtool]').forEach((b) => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      hint.textContent = gtool === 'borrow'
+        ? 'Press and hold a digit to borrow from it -- hold again to undo.'
+        : 'Tap a cell to type a digit or symbol.';
+      applyReadonlyState();
+    });
+  });
+
+  let rowCount = GRIDPAD_DEFAULT_ROWS;
+  $('btnGridAddRow').addEventListener('click', () => {
+    grid.insertAdjacentHTML('beforeend', gridPadRowHtml(rowCount));
+    grid.querySelectorAll(`.gridpad-cell[data-row="${rowCount}"]`).forEach(wireCell);
+    applyReadonlyState();
+    rowCount++;
+  });
+  $('btnGridClear').addEventListener('click', () => {
+    grid.querySelectorAll('.gridpad-cell').forEach((cell) => {
+      cell.classList.remove('is-borrowed');
+      cell.removeAttribute('data-carry');
+      delete cell.dataset.preborrow;
+      cell.querySelector('.gridpad-input').value = '';
+    });
   });
 }
 
